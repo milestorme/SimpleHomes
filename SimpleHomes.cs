@@ -11,8 +11,8 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SimpleHomes", "Milestorme", "2.2.2")]
-    [Description("Lightweight homes plus outpost and bandit teleports.")]
+    [Info("SimpleHomes", "Milestorme", "2.2.3")]
+    [Description("Lightweight home, outpost, and bandit teleports with migration and daily limit support.")]
     public class SimpleHomes : RustPlugin
     {
         [PluginReference]
@@ -504,17 +504,17 @@ namespace Oxide.Plugins
                 {
                     if (config.Home.CancelOnAnyDamage)
                     {
-                        CancelTeleport(player, "Teleport cancelled because you took damage.");
+                        CancelTeleport(player, Lang("CancelDamage", player.UserIDString));
                         return;
                     }
                     if (config.Home.CancelOnPlayerDamage && info.Initiator is BasePlayer)
                     {
-                        CancelTeleport(player, "Teleport cancelled due to player damage.");
+                        CancelTeleport(player, Lang("CancelPlayerDamage", player.UserIDString));
                         return;
                     }
                     if (config.Home.CancelOnFallDamage && info.damageTypes.Has(DamageType.Fall))
                     {
-                        CancelTeleport(player, "Teleport cancelled due to fall damage.");
+                        CancelTeleport(player, Lang("CancelFallDamage", player.UserIDString));
                         return;
                     }
                 }
@@ -522,17 +522,17 @@ namespace Oxide.Plugins
                 {
                     if (config.Home.CancelOnAnyDamage)
                     {
-                        CancelTeleport(player, "Teleport cancelled because you took damage.");
+                        CancelTeleport(player, Lang("CancelDamage", player.UserIDString));
                         return;
                     }
                     if (config.Home.CancelOnPlayerDamage && info.Initiator is BasePlayer)
                     {
-                        CancelTeleport(player, "Teleport cancelled due to player damage.");
+                        CancelTeleport(player, Lang("CancelPlayerDamage", player.UserIDString));
                         return;
                     }
                     if (config.Home.CancelOnFallDamage && info.damageTypes.Has(DamageType.Fall))
                     {
-                        CancelTeleport(player, "Teleport cancelled due to fall damage.");
+                        CancelTeleport(player, Lang("CancelFallDamage", player.UserIDString));
                         return;
                     }
                 }
@@ -561,19 +561,19 @@ namespace Oxide.Plugins
 
             if (!config.Home.Enabled)
             {
-                Reply(player, "Homes are disabled.");
+                ReplyKey(player, "HomeDisabled");
                 return;
             }
 
             if (!permission.UserHasPermission(player.UserIDString, PermUse))
             {
-                Reply(player, "You do not have permission to use /home.");
+                ReplyKey(player, "NoPermHome");
                 return;
             }
 
             if (args == null || args.Length == 0)
             {
-                Reply(player, "Usage: /home add <name>, /home list, /home remove <name>, /home <name>");
+                ReplyKey(player, "HomeUsage");
                 return;
             }
 
@@ -583,7 +583,7 @@ namespace Oxide.Plugins
             {
                 if (args.Length != 2)
                 {
-                    Reply(player, "Usage: /home add <name>");
+                    ReplyKey(player, "HomeUsageAdd");
                     return;
                 }
                 TryAddHome(player, args[1]);
@@ -594,7 +594,7 @@ namespace Oxide.Plugins
             {
                 if (args.Length != 1)
                 {
-                    Reply(player, "Usage: /home list");
+                    ReplyKey(player, "HomeUsageList");
                     return;
                 }
                 ListHomes(player);
@@ -605,7 +605,7 @@ namespace Oxide.Plugins
             {
                 if (args.Length != 2)
                 {
-                    Reply(player, "Usage: /home remove <name>");
+                    ReplyKey(player, "HomeUsageRemove");
                     return;
                 }
                 RemoveHome(player, args[1]);
@@ -618,7 +618,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            Reply(player, "Usage: /home add <name>, /home list, /home remove <name>, /home <name>");
+            ReplyKey(player, "HomeUsage");
         }
 
         private void CmdOutpost(BasePlayer player, string command, string[] args)
@@ -630,19 +630,19 @@ namespace Oxide.Plugins
 
             if (!config.Town.EnableOutpost)
             {
-                Reply(player, "Outpost teleport is disabled.");
+                ReplyKey(player, "OutpostDisabled");
                 return;
             }
 
             if (!permission.UserHasPermission(player.UserIDString, PermOutpost))
             {
-                Reply(player, "You do not have permission to teleport to outpost.");
+                ReplyKey(player, "NoPermOutpost");
                 return;
             }
 
             if (outpostSpawns.Count == 0)
             {
-                Reply(player, "Outpost was not found.");
+                ReplyKey(player, "OutpostNotFound");
                 return;
             }
 
@@ -667,19 +667,19 @@ namespace Oxide.Plugins
 
             if (!config.Town.EnableBandit)
             {
-                Reply(player, "Bandit teleport is disabled.");
+                ReplyKey(player, "BanditDisabled");
                 return;
             }
 
             if (!permission.UserHasPermission(player.UserIDString, PermBandit))
             {
-                Reply(player, "You do not have permission to teleport to bandit.");
+                ReplyKey(player, "NoPermBandit");
                 return;
             }
 
             if (banditSpawns.Count == 0)
             {
-                Reply(player, "Bandit camp was not found.");
+                ReplyKey(player, "BanditNotFound");
                 return;
             }
 
@@ -705,11 +705,11 @@ namespace Oxide.Plugins
             PendingTeleport pending;
             if (!pendingTeleports.TryGetValue(player.userID, out pending))
             {
-                Reply(player, "You have no active teleport countdown.");
+                ReplyKey(player, "NoActiveTeleport");
                 return;
             }
 
-            CancelTeleport(player, "Teleport cancelled.");
+            CancelTeleport(player, Lang("CancelGeneric", player.UserIDString));
         }
 
         #endregion
@@ -720,7 +720,7 @@ namespace Oxide.Plugins
         {
             if (!IsValidHomeName(name))
             {
-                Reply(player, "Home names can only use letters, numbers, underscore and dash.");
+                ReplyKey(player, "InvalidHomeName");
                 return;
             }
 
@@ -728,13 +728,13 @@ namespace Oxide.Plugins
 
             if (pdata.Homes.ContainsKey(name))
             {
-                Reply(player, "You already have a home with that name.");
+                ReplyKey(player, "HomeExists");
                 return;
             }
 
             if (pdata.Homes.Count >= GetHomeLimit(player))
             {
-                Reply(player, string.Format("You have reached your home limit of {0}.", GetHomeLimit(player)));
+                ReplyKey(player, "HomeLimitReached", GetHomeLimit(player));
                 return;
             }
 
@@ -747,7 +747,7 @@ namespace Oxide.Plugins
 
             pdata.Homes[name] = new SerializableVector3(player.transform.position);
             MarkDirty();
-            Reply(player, string.Format("Home '{0}' saved.", name));
+            ReplyKey(player, "HomeSaved", name);
         }
 
         private void ListHomes(BasePlayer player)
@@ -757,18 +757,18 @@ namespace Oxide.Plugins
 
             if (pdata.Homes.Count == 0)
             {
-                Reply(player, "You have no homes saved. " + FormatDailyRemaining(Math.Max(0, GetHomeDailyLimit(player) - pdata.HomeDailyCount), GetHomeDailyLimit(player)));
+                ReplyKey(player, "NoHomesSaved", FormatDailyRemaining(player.UserIDString, Math.Max(0, GetHomeDailyLimit(player) - pdata.HomeDailyCount), GetHomeDailyLimit(player)));
                 return;
             }
 
-            Reply(player, "Your homes:");
+            ReplyKey(player, "YourHomes");
             foreach (KeyValuePair<string, SerializableVector3> entry in pdata.Homes)
             {
                 Vector3 pos = entry.Value.ToVector3();
-                Reply(player, string.Format("- {0}: ({1:0.0}, {2:0.0}, {3:0.0})", entry.Key, pos.x, pos.y, pos.z));
+                ReplyKey(player, "HomeListEntry", entry.Key, pos.x, pos.y, pos.z);
             }
 
-            Reply(player, FormatDailyRemaining(Math.Max(0, GetHomeDailyLimit(player) - pdata.HomeDailyCount), GetHomeDailyLimit(player)));
+            Reply(player, FormatDailyRemaining(player.UserIDString, Math.Max(0, GetHomeDailyLimit(player) - pdata.HomeDailyCount), GetHomeDailyLimit(player)));
         }
 
         private void RemoveHome(BasePlayer player, string name)
@@ -776,12 +776,12 @@ namespace Oxide.Plugins
             PlayerData pdata = GetPlayerData(player.userID);
             if (!pdata.Homes.Remove(name))
             {
-                Reply(player, "Home not found.");
+                ReplyKey(player, "HomeNotFound");
                 return;
             }
 
             MarkDirty();
-            Reply(player, string.Format("Home '{0}' removed.", name));
+            ReplyKey(player, "HomeRemoved", name);
         }
 
         private void TeleportHome(BasePlayer player, string name)
@@ -790,7 +790,7 @@ namespace Oxide.Plugins
             SerializableVector3 home;
             if (!pdata.Homes.TryGetValue(name, out home))
             {
-                Reply(player, "Home not found.");
+                ReplyKey(player, "HomeNotFound");
                 return;
             }
 
@@ -809,35 +809,35 @@ namespace Oxide.Plugins
         {
             if (config.Home.BlockWhileWounded && player.IsWounded())
             {
-                return "You cannot set a home while wounded.";
+                return Lang("SetHomeWounded", player.UserIDString);
             }
 
             if (config.Home.BlockWhileSwimming && player.IsSwimming())
             {
-                return "You cannot set a home while swimming.";
+                return Lang("SetHomeSwimming", player.UserIDString);
             }
 
             if (config.Home.BlockWhileCrafting && IsCrafting(player))
             {
-                return "You cannot set a home while crafting.";
+                return Lang("SetHomeCrafting", player.UserIDString);
             }
 
             BuildingPrivlidge priv = player.GetBuildingPrivilege();
             if (config.Home.BlockSetHomeWithoutCupboard && priv == null)
             {
-                return "You cannot set a home without a tool cupboard.";
+                return Lang("SetHomeNoCupboard", player.UserIDString);
             }
 
             if (config.Home.BlockSetHomeWhileBuildingBlocked && !player.CanBuild())
             {
-                return "You cannot set a home while building blocked.";
+                return Lang("SetHomeBlocked", player.UserIDString);
             }
 
             if (config.Home.RequirePrivilegeToSet)
             {
                 if (priv == null || !priv.IsAuthed(player))
                 {
-                    return "You must be authorized on the cupboard to set a home here.";
+                    return Lang("SetHomeNotAuthed", player.UserIDString);
                 }
             }
 
@@ -848,22 +848,22 @@ namespace Oxide.Plugins
         {
             if (player.IsDead())
             {
-                return "You cannot teleport while dead.";
+                return Lang("TpDead", player.UserIDString);
             }
 
             if (config.Home.BlockWhileWounded && player.IsWounded())
             {
-                return "You cannot teleport while wounded.";
+                return Lang("TpWounded", player.UserIDString);
             }
 
             if (config.Home.BlockWhileSwimming && player.IsSwimming())
             {
-                return "You cannot teleport while swimming.";
+                return Lang("TpSwimming", player.UserIDString);
             }
 
             if (config.Home.BlockWhileCrafting && IsCrafting(player))
             {
-                return "You cannot teleport while crafting.";
+                return Lang("TpCrafting", player.UserIDString);
             }
 
             if (config.Home.RequirePrivilegeToTeleport)
@@ -871,7 +871,7 @@ namespace Oxide.Plugins
                 BuildingPrivlidge priv = player.GetBuildingPrivilege();
                 if (priv == null || !priv.IsAuthed(player))
                 {
-                    return "You must be authorized on a cupboard to teleport home.";
+                    return Lang("TpHomeNotAuthed", player.UserIDString);
                 }
             }
 
@@ -880,19 +880,19 @@ namespace Oxide.Plugins
                 object raidBlocked = NoEscape.Call("IsRaidBlocked", player);
                 if (raidBlocked is bool && (bool)raidBlocked)
                 {
-                    return "You cannot teleport while raid blocked.";
+                    return Lang("TpRaidBlocked", player.UserIDString);
                 }
 
                 object combatBlocked = NoEscape.Call("IsCombatBlocked", player);
                 if (combatBlocked is bool && (bool)combatBlocked)
                 {
-                    return "You cannot teleport while combat blocked.";
+                    return Lang("TpCombatBlocked", player.UserIDString);
                 }
             }
 
             if (!ignorePending && pendingTeleports.ContainsKey(player.userID))
             {
-                return "You already have a teleport countdown active.";
+                return Lang("TpAlreadyPending", player.UserIDString);
             }
 
             PlayerData pdata = GetPlayerData(player.userID);
@@ -932,32 +932,32 @@ namespace Oxide.Plugins
         {
             if (player.IsDead())
             {
-                return "You cannot teleport while dead.";
+                return Lang("TpDead", player.UserIDString);
             }
 
             if (player.IsWounded())
             {
-                return "You cannot teleport while wounded.";
+                return Lang("TpWounded", player.UserIDString);
             }
 
             if (!player.CanBuild())
             {
-                return "You cannot teleport without building privilege.";
+                return Lang("TpNoBuild", player.UserIDString);
             }
 
             if (config.Town.BlockWhenMounted && player.isMounted)
             {
-                return "You cannot teleport while mounted.";
+                return Lang("TpMounted", player.UserIDString);
             }
 
             if (config.Town.BlockFromCargo && player.GetComponentInParent<CargoShip>() != null)
             {
-                return "You cannot teleport from cargo ship.";
+                return Lang("TpCargo", player.UserIDString);
             }
 
             if (player.IsHostile())
             {
-                return "You cannot teleport while hostile.";
+                return Lang("TpHostile", player.UserIDString);
             }
 
             if (config.Safety.RespectNoEscape && NoEscape != null)
@@ -965,19 +965,19 @@ namespace Oxide.Plugins
                 object raidBlocked = NoEscape.Call("IsRaidBlocked", player);
                 if (raidBlocked is bool && (bool)raidBlocked)
                 {
-                    return "You cannot teleport while raid blocked.";
+                    return Lang("TpRaidBlocked", player.UserIDString);
                 }
 
                 object combatBlocked = NoEscape.Call("IsCombatBlocked", player);
                 if (combatBlocked is bool && (bool)combatBlocked)
                 {
-                    return "You cannot teleport while combat blocked.";
+                    return Lang("TpCombatBlocked", player.UserIDString);
                 }
             }
 
             if (!ignorePending && pendingTeleports.ContainsKey(player.userID))
             {
-                return "You already have a teleport countdown active.";
+                return Lang("TpAlreadyPending", player.UserIDString);
             }
 
             PlayerData pdata = GetPlayerData(player.userID);
@@ -1005,7 +1005,7 @@ namespace Oxide.Plugins
 
                 if (GetTownDailyCount(pdata, town) >= dailyLimit)
                 {
-                    return string.Format("You have reached your daily {0} teleport limit of {1}.", town, dailyLimit);
+                    return Lang("TownDailyLimitReached", player.UserIDString, town, dailyLimit);
                 }
             }
 
@@ -1017,8 +1017,7 @@ namespace Oxide.Plugins
             outpostSpawns.Clear();
             banditSpawns.Clear();
 
-            MonumentInfo[] monuments = UnityEngine.Object.FindObjectsOfType<MonumentInfo>();
-            foreach (MonumentInfo monument in monuments)
+            foreach (MonumentInfo monument in TerrainMeta.Path.Monuments)
             {
                 if (monument == null || string.IsNullOrEmpty(monument.name))
                 {
@@ -1107,10 +1106,10 @@ namespace Oxide.Plugins
                         pdata.GlobalCooldownUntil = now + GetGlobalCooldown(player);
                     }
 
-                    successMessage = string.Format("Teleported to home '{0}'.", name);
+                    successMessage = Lang("HomeTeleportSuccess", player.UserIDString, name);
                     if (dailyLimit > 0)
                     {
-                        successMessage += " " + FormatDailyRemaining(Math.Max(0, dailyLimit - pdata.HomeDailyCount), dailyLimit);
+                        successMessage += " " + FormatDailyRemaining(player.UserIDString, Math.Max(0, dailyLimit - pdata.HomeDailyCount), dailyLimit);
                     }
                 }
                 else
@@ -1137,10 +1136,10 @@ namespace Oxide.Plugins
                         ResetHostile(player);
                     }
 
-                    successMessage = string.Format("Teleported to {0}.", GetTownDisplayName(name));
+                    successMessage = Lang("TownTeleportSuccess", player.UserIDString, GetTownDisplayName(name));
                     if (townDailyLimit > 0)
                     {
-                        successMessage += " " + FormatDailyRemaining(Math.Max(0, townDailyLimit - GetTownDailyCount(pdata, name)), townDailyLimit);
+                        successMessage += " " + FormatDailyRemaining(player.UserIDString, Math.Max(0, townDailyLimit - GetTownDailyCount(pdata, name)), townDailyLimit);
                     }
                 }
 
@@ -1165,7 +1164,7 @@ namespace Oxide.Plugins
                 if (homeDailyLimit > 0)
                 {
                     ResetHomeDailyIfNeeded(currentData);
-                    message += " " + FormatDailyRemaining(Math.Max(0, homeDailyLimit - (currentData.HomeDailyCount + 1)), homeDailyLimit);
+                    message += " " + FormatDailyRemaining(player.UserIDString, Math.Max(0, homeDailyLimit - (currentData.HomeDailyCount + 1)), homeDailyLimit);
                 }
             }
             else
@@ -1175,7 +1174,7 @@ namespace Oxide.Plugins
                 if (townDailyLimit > 0)
                 {
                     ResetTownDailyIfNeeded(currentData);
-                    message += " " + FormatDailyRemaining(Math.Max(0, townDailyLimit - (GetTownDailyCount(currentData, name) + 1)), townDailyLimit);
+                    message += " " + FormatDailyRemaining(player.UserIDString, Math.Max(0, townDailyLimit - (GetTownDailyCount(currentData, name) + 1)), townDailyLimit);
                 }
             }
 
@@ -1457,7 +1456,7 @@ namespace Oxide.Plugins
         {
             if (player != null && !player.IsAdmin)
             {
-                Reply(player, "You are not allowed to run migration manually.");
+                ReplyKey(player, "NoPermMigration");
                 return;
             }
 
@@ -1467,11 +1466,11 @@ namespace Oxide.Plugins
 
             if (player != null)
             {
-                Reply(player, "Manual migration attempted. Use /home list to check imported homes.");
+                ReplyKey(player, "MigrationAttempted");
             }
             else
             {
-                ReplyConsole("Manual migration attempted. Check /home list in game.");
+                ReplyConsole(Lang("MigrationAttemptedConsole"));
             }
         }
 
@@ -1648,14 +1647,14 @@ private void HandleWipeReset()
             return town == "outpost" ? "Outpost" : "Bandit";
         }
 
-        private string FormatDailyRemaining(int remaining, int limit)
+        private string FormatDailyRemaining(string userId, int remaining, int limit)
         {
             if (limit <= 0)
             {
-                return "Daily limit: unlimited.";
+                return Lang("DailyLimitUnlimited", userId);
             }
 
-            return string.Format("Daily remaining: {0}/{1}.", remaining, limit);
+            return Lang("DailyRemaining", userId, remaining, limit);
         }
 
         private int GetGlobalCooldown(BasePlayer player)
@@ -1718,7 +1717,7 @@ private void HandleWipeReset()
         {
             if (seconds <= 0)
             {
-                return "0s";
+                return Lang("SecondsShort");
             }
 
             if (seconds < 60)
@@ -1734,6 +1733,12 @@ private void HandleWipeReset()
             return (seconds / 3600).ToString() + "h";
         }
 
+        private string Lang(string key, string userId = null, params object[] args)
+        {
+            string message = lang.GetMessage(key, this, userId);
+            return args != null && args.Length > 0 ? string.Format(message, args) : message;
+        }
+
         private void Reply(BasePlayer player, string message)
         {
             if (player == null)
@@ -1743,6 +1748,11 @@ private void HandleWipeReset()
 
             string finalMessage = config.Chat.Prefix + message;
             SendReply(player, finalMessage);
+        }
+
+        private void ReplyKey(BasePlayer player, string key, params object[] args)
+        {
+            Reply(player, Lang(key, player != null ? player.UserIDString : null, args));
         }
 
         private void ReplyConsole(string message)
@@ -1764,7 +1774,65 @@ private void HandleWipeReset()
 
         protected override void LoadDefaultMessages()
         {
-            lang.RegisterMessages(new Dictionary<string, string>(), this);
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["HomeDisabled"] = "Homes are disabled.",
+                ["NoPermHome"] = "You do not have permission to use /home.",
+                ["HomeUsage"] = "Usage: /home add <name>, /home list, /home remove <name>, /home <name>",
+                ["HomeUsageAdd"] = "Usage: /home add <name>",
+                ["HomeUsageList"] = "Usage: /home list",
+                ["HomeUsageRemove"] = "Usage: /home remove <name>",
+                ["OutpostDisabled"] = "Outpost teleport is disabled.",
+                ["NoPermOutpost"] = "You do not have permission to teleport to outpost.",
+                ["OutpostNotFound"] = "Outpost was not found.",
+                ["BanditDisabled"] = "Bandit teleport is disabled.",
+                ["NoPermBandit"] = "You do not have permission to teleport to bandit.",
+                ["BanditNotFound"] = "Bandit camp was not found.",
+                ["NoActiveTeleport"] = "You have no active teleport countdown.",
+                ["InvalidHomeName"] = "Home names can only use letters, numbers, underscore and dash.",
+                ["HomeExists"] = "You already have a home with that name.",
+                ["HomeLimitReached"] = "You have reached your home limit of {0}.",
+                ["HomeSaved"] = "Home '{0}' saved.",
+                ["NoHomesSaved"] = "You have no homes saved. {0}",
+                ["YourHomes"] = "Your homes:",
+                ["HomeListEntry"] = "- {0}: ({1:0.0}, {2:0.0}, {3:0.0})",
+                ["HomeNotFound"] = "Home not found.",
+                ["HomeRemoved"] = "Home '{0}' removed.",
+                ["NoPermMigration"] = "You are not allowed to run migration manually.",
+                ["MigrationAttempted"] = "Manual migration attempted. Use /home list to check imported homes.",
+                ["MigrationAttemptedConsole"] = "Manual migration attempted. Check /home list in game.",
+                ["SetHomeWounded"] = "You cannot set a home while wounded.",
+                ["SetHomeSwimming"] = "You cannot set a home while swimming.",
+                ["SetHomeCrafting"] = "You cannot set a home while crafting.",
+                ["SetHomeNoCupboard"] = "You cannot set a home without a tool cupboard.",
+                ["SetHomeBlocked"] = "You cannot set a home while building blocked.",
+                ["SetHomeNotAuthed"] = "You must be authorized on the cupboard to set a home here.",
+                ["TpDead"] = "You cannot teleport while dead.",
+                ["TpWounded"] = "You cannot teleport while wounded.",
+                ["TpSwimming"] = "You cannot teleport while swimming.",
+                ["TpCrafting"] = "You cannot teleport while crafting.",
+                ["TpHomeNotAuthed"] = "You must be authorized on a cupboard to teleport home.",
+                ["TpRaidBlocked"] = "You cannot teleport while raid blocked.",
+                ["TpCombatBlocked"] = "You cannot teleport while combat blocked.",
+                ["TpAlreadyPending"] = "You already have a teleport countdown active.",
+                ["TpNoBuild"] = "You cannot teleport without building privilege.",
+                ["TpMounted"] = "You cannot teleport while mounted.",
+                ["TpCargo"] = "You cannot teleport from cargo ship.",
+                ["TpHostile"] = "You cannot teleport while hostile.",
+                ["HomeDailyLimitReached"] = "You have reached your daily home teleport limit of {0}.",
+                ["TownDailyLimitReached"] = "You have reached your daily {0} teleport limit of {1}.",
+                ["DailyLimitUnlimited"] = "Daily limit: unlimited.",
+                ["DailyRemaining"] = "Daily remaining: {0}/{1}.",
+                ["SecondsShort"] = "0s",
+                ["CancelDamage"] = "Teleport cancelled because you took damage.",
+                ["CancelPlayerDamage"] = "Teleport cancelled due to player damage.",
+                ["CancelFallDamage"] = "Teleport cancelled due to fall damage.",
+                ["CancelGeneric"] = "Teleport cancelled.",
+                ["HomeTeleportStarted"] = "Teleporting to home '{0}' in {1} seconds.",
+                ["TownTeleportStarted"] = "Teleporting to {0} in {1} seconds.",
+                ["HomeTeleportSuccess"] = "Teleported to home '{0}'.",
+                ["TownTeleportSuccess"] = "Teleported to {0}.",
+            }, this);
         }
 
         #endregion
