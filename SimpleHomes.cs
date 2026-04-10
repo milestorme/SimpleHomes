@@ -218,6 +218,9 @@ namespace Oxide.Plugins
 
             [JsonProperty(PropertyName = "Reset Daily Limits On Wipe")]
             public bool ResetDailyLimitsOnWipe = true;
+
+            [JsonProperty(PropertyName = "Reset Homes On Wipe")]
+            public bool ResetHomesOnWipe = true;
         }
 
         protected override void LoadDefaultConfig()
@@ -1493,6 +1496,11 @@ private void HandleWipeReset()
                     if (pdata == null)
                     {
                         continue;
+                    }
+
+                    if (config.WipeReset.ResetHomesOnWipe)
+                    {
+                        pdata.Homes.Clear();
                     }
 
                     if (config.WipeReset.ResetCooldownsOnWipe)
