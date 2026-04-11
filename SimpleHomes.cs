@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SimpleHomes", "Milestorme", "2.2.3")]
+    [Info("SimpleHomes", "Milestorme", "2.2.4")]
     [Description("Lightweight home, outpost, and bandit teleports with migration and daily limit support.")]
     public class SimpleHomes : RustPlugin
     {
