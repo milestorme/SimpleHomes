@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Network;
+using Network.Visibility;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Oxide.Core;
@@ -11,7 +13,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SimpleHomes", "Milestorme", "2.2.5")]
+    [Info("SimpleHomes", "Milestorme", "2.2.9")]
     [Description("Lightweight home, outpost, and bandit teleports with migration and daily limit support.")]
     public class SimpleHomes : RustPlugin
     {
@@ -209,6 +211,21 @@ namespace Oxide.Plugins
 
             [JsonProperty(PropertyName = "Respect NoEscape")]
             public bool RespectNoEscape = true;
+
+            [JsonProperty(PropertyName = "Force Client Loading Screen During Teleport")]
+            public bool ForceClientLoadingScreenDuringTeleport = true;
+
+            [JsonProperty(PropertyName = "Use Direct MovePosition Teleport")]
+            public bool UseDirectMovePositionTeleport = true;
+
+            [JsonProperty(PropertyName = "Force Client Position RPC After Teleport")]
+            public bool ForceClientPositionRpcAfterTeleport = true;
+
+            [JsonProperty(PropertyName = "Post Teleport Network Refresh Count")]
+            public int PostTeleportNetworkRefreshCount = 12;
+
+            [JsonProperty(PropertyName = "Post Teleport Network Refresh Interval Seconds")]
+            public float PostTeleportNetworkRefreshInterval = 0.10f;
         }
 
         private class WipeResetSettings
@@ -1230,42 +1247,85 @@ namespace Oxide.Plugins
             }
 
             player.EnsureDismounted();
+            player.Server_CancelGesture();
 
-            // Newer Rust builds removed BasePlayer.SendFullSnapshot().
-            // Do not set ReceivingSnapshot or clear the entity queue here, because without a full snapshot
-            // the client can lose streamed monument entities after teleporting.
-            player.Teleport(position);
-            player.SetParent(null, true, true);
-            player.UpdateNetworkGroup();
-            player.SendNetworkUpdateImmediate();
+            if (player.HasParent())
+            {
+                player.SetParent(null, true, true);
+            }
+
+            player.PauseFlyHackDetection(5f);
+            player.PauseSpeedHackDetection(5f);
+            player.ApplyStallProtection(4f);
+            player.UpdateActiveItem(default(ItemId));
+
+            bool startedSnapshot = false;
+
+            try
+            {
+                // Match the updated NTeleportation snapshot flow:
+                // start a quick client loading transition, teleport, update the network group,
+                // then send the newer complete snapshot. Do not clear the entity queue and do not
+                // use the removed/unsafe SendFullSnapshot path.
+                if (player.IsConnected)
+                {
+                    player.StartSleeping();
+                    player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+                    startedSnapshot = true;
+                    player.ClientRPC(RpcTarget.Player("StartLoading_Quick", player), true);
+                }
+
+                player.Teleport(position + new Vector3(0f, 0.1f, 0f));
+
+                if (player.IsConnected && !player.limitNetworking && !player.isInvisible)
+                {
+                    player.UpdateNetworkGroup();
+                    player.SendNetworkUpdateImmediate();
+                }
+
+                if (player.IsConnected)
+                {
+                    player.SendCompleteSnapshot();
+                }
+
+                if (!player.limitNetworking && !player.isInvisible)
+                {
+                    player.ForceUpdateTriggers();
+                }
+            }
+            finally
+            {
+                timer.Once(0.5f, delegate()
+                {
+                    if (player == null || !player.IsConnected)
+                    {
+                        return;
+                    }
+
+                    if (startedSnapshot || player.IsSleeping())
+                    {
+                        player.EndSleeping();
+                    }
+
+                    RefreshPlayerNetwork(player);
+                });
+            }
 
             NextTick(delegate()
             {
-                if (player == null || !player.IsConnected)
-                {
-                    return;
-                }
-
-                player.UpdateNetworkGroup();
-                player.SendNetworkUpdateImmediate();
+                RefreshPlayerNetwork(player);
             });
         }
 
-        private void StartSleeping(BasePlayer player)
+        private void RefreshPlayerNetwork(BasePlayer player)
         {
-            if (player.IsSleeping())
+            if (player == null || !player.IsConnected || player.net == null || player.net.connection == null)
             {
                 return;
             }
 
-            player.SetPlayerFlag(BasePlayer.PlayerFlags.Sleeping, true);
-
-            if (!BasePlayer.sleepingPlayerList.Contains(player))
-            {
-                BasePlayer.sleepingPlayerList.Add(player);
-            }
-
-            player.CancelInvoke("InventoryUpdate");
+            player.UpdateNetworkGroup();
+            player.SendNetworkUpdateImmediate();
         }
 
         private void ResetHostile(BasePlayer player)
