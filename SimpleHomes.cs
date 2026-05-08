@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SimpleHomes", "Milestorme", "2.2.4")]
+    [Info("SimpleHomes", "Milestorme", "2.2.5")]
     [Description("Lightweight home, outpost, and bandit teleports with migration and daily limit support.")]
     public class SimpleHomes : RustPlugin
     {
@@ -467,10 +467,20 @@ namespace Oxide.Plugins
 
         private void OnPlayerConnected(BasePlayer player)
         {
-            if (player != null)
+            if (player == null)
             {
-                vipCache[player.userID] = IsVip(player);
+                return;
             }
+
+            NextTick(delegate()
+            {
+                if (player == null || !player.IsConnected)
+                {
+                    return;
+                }
+
+                vipCache[player.userID] = IsVip(player);
+            });
         }
 
         private void OnPlayerDisconnected(BasePlayer player, string reason)
@@ -498,10 +508,12 @@ namespace Oxide.Plugins
 
             NextTick(delegate()
             {
-                if (info == null || info.damageTypes == null || info.damageTypes.Total() <= 0f)
+                if (player == null || !player.IsConnected || info == null || info.damageTypes == null || info.damageTypes.Total() <= 0f)
                 {
                     return;
                 }
+
+                BasePlayer attacker = GetSafePlayer(info);
 
                 if (pending.Type == "home")
                 {
@@ -510,7 +522,7 @@ namespace Oxide.Plugins
                         CancelTeleport(player, Lang("CancelDamage", player.UserIDString));
                         return;
                     }
-                    if (config.Home.CancelOnPlayerDamage && info.Initiator is BasePlayer)
+                    if (config.Home.CancelOnPlayerDamage && attacker != null)
                     {
                         CancelTeleport(player, Lang("CancelPlayerDamage", player.UserIDString));
                         return;
@@ -528,7 +540,7 @@ namespace Oxide.Plugins
                         CancelTeleport(player, Lang("CancelDamage", player.UserIDString));
                         return;
                     }
-                    if (config.Home.CancelOnPlayerDamage && info.Initiator is BasePlayer)
+                    if (config.Home.CancelOnPlayerDamage && attacker != null)
                     {
                         CancelTeleport(player, Lang("CancelPlayerDamage", player.UserIDString));
                         return;
@@ -1212,45 +1224,31 @@ namespace Oxide.Plugins
 
         private void TeleportPlayer(BasePlayer player, Vector3 position)
         {
-            if (player == null || !player.IsConnected)
+            if (player == null || !player.IsConnected || player.net == null || player.net.connection == null)
             {
                 return;
             }
 
             player.EnsureDismounted();
 
-            if (player.net != null && player.net.connection != null)
-            {
-                player.ClientRPCPlayer(null, player, "StartLoading");
-            }
-
-            StartSleeping(player);
-            player.MovePosition(position);
-
-            if (player.net != null && player.net.connection != null)
-            {
-                player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
-                player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
-            }
-
+            // Newer Rust builds removed BasePlayer.SendFullSnapshot().
+            // Do not set ReceivingSnapshot or clear the entity queue here, because without a full snapshot
+            // the client can lose streamed monument entities after teleporting.
+            player.Teleport(position);
+            player.SetParent(null, true, true);
             player.UpdateNetworkGroup();
             player.SendNetworkUpdateImmediate();
 
-            if (player.net == null || player.net.connection == null)
+            NextTick(delegate()
             {
-                return;
-            }
+                if (player == null || !player.IsConnected)
+                {
+                    return;
+                }
 
-            try
-            {
-                player.ClearEntityQueue();
-            }
-            catch
-            {
-            }
-
-            player.SendFullSnapshot();
-            player.SetParent(null, true, true);
+                player.UpdateNetworkGroup();
+                player.SendNetworkUpdateImmediate();
+            });
         }
 
         private void StartSleeping(BasePlayer player)
@@ -1694,6 +1692,21 @@ private void HandleWipeReset()
         private int GetUnix()
         {
             return (int)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+        }
+
+        private BasePlayer GetSafePlayer(HitInfo info)
+        {
+            if (info == null)
+            {
+                return null;
+            }
+
+            if (info.InitiatorPlayer != null)
+            {
+                return info.InitiatorPlayer;
+            }
+
+            return info.Initiator as BasePlayer;
         }
 
         private bool IsCrafting(BasePlayer player)
